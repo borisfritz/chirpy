@@ -15,6 +15,7 @@ import (
 type apiConfig struct {
 	fileserverHits 	atomic.Int32
 	db 				*database.Queries
+	platform		string
 }
 
 func main() {
@@ -22,12 +23,20 @@ func main() {
 	dbURL := os.Getenv("DB_URL")
 	dbConn , err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Printf("Unable to connect to database: %v", err)
-		return
+		log.Fatal("Unable to connect to database: ", err)
 	}
+	defer dbConn.Close()
+
+	if err := dbConn.Ping(); err != nil {
+    	log.Fatal("Unable to connect to database: ", err)
+	}
+
 	dbQueries := database.New(dbConn)
 
-	cfg := &apiConfig{db: dbQueries}
+	cfg := &apiConfig{
+		db: dbQueries, 
+		platform: os.Getenv("PLATFORM"),
+	}
 	mux := http.NewServeMux()
 	
 	//app handlers
@@ -44,6 +53,7 @@ func main() {
 	//POST Requests only
 	mux.HandleFunc("POST /admin/reset", cfg.handlerReset)
 	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+	mux.HandleFunc("POST /api/users", cfg.handlerUsers)
 
 	// Create and start server
 	server := &http.Server{
