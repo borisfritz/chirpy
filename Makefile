@@ -9,6 +9,9 @@ migrate-down:
 migrate-reset:
 	goose -dir sql/schema postgres $(DB_URL) reset
 
+generate:
+	sqlc generate
+
 build:
 	go build -o out/chirpy .
 
