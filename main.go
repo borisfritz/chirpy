@@ -14,7 +14,7 @@ import (
 
 type apiConfig struct {
 	fileserverHits 	atomic.Int32
-	db 				*database.Queries
+	db 				DB
 	platform		string
 }
 
@@ -28,7 +28,7 @@ func main() {
 	defer dbConn.Close()
 
 	if err := dbConn.Ping(); err != nil {
-    	log.Fatal("Unable to connect to database: ", err)
+		log.Fatal("Unable to connect to database: ", err)
 	}
 
 	dbQueries := database.New(dbConn)
@@ -38,14 +38,15 @@ func main() {
 		platform: os.Getenv("PLATFORM"),
 	}
 	mux := http.NewServeMux()
-	
+
 	//app handlers
 	mux.Handle("/app/", cfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))
-	
+
 	//api handlers
 	//GET Requests
 	mux.HandleFunc("GET /admin/metrics", cfg.handlerMetrics)
-	mux.HandleFunc("GET /api/chirps", cfg.handlerGetChirp)
+	mux.HandleFunc("GET /api/chirps", cfg.handlerGetChirps)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.handlerGetChirp)
 	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(200)
