@@ -55,7 +55,7 @@ func main() {
 	//POST Requests
 	mux.HandleFunc("POST /admin/reset", cfg.handlerReset)
 	mux.HandleFunc("POST /api/users", cfg.handlerPostUsers)
-	mux.HandleFunc("POST /api/login", //TODO:)
+	mux.HandleFunc("POST /api/login", cfg.handlerLoginUser)
 	mux.HandleFunc("POST /api/chirps", cfg.handlerPostChirp)
 
 	// Create and start server
