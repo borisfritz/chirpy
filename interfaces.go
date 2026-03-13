@@ -12,5 +12,6 @@ type DB interface {
 	GetAllChirps(ctx context.Context) ([]database.Chirp, error)
 	GetChirpByID(ctx context.Context, id uuid.UUID) (database.Chirp, error)
 	CreateUser(ctx context.Context, arg database.CreateUserParams) (database.User, error)
+	GetUserByEmail(ctx context.Context, email string) (database.User, error)
 	ResetUsers(ctx context.Context) error
 }

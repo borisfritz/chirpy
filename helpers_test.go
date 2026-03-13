@@ -18,6 +18,7 @@ type mockDB struct {
     getAllChirpsFn  func(ctx context.Context) ([]database.Chirp, error)
     getChirpByIDFn  func(ctx context.Context, id uuid.UUID) (database.Chirp, error)
     createUserFn    func(ctx context.Context, arg database.CreateUserParams) (database.User, error)
+	getUserByEmailFn func(ctx context.Context, email string) (database.User, error)
 	resetUsersFn	func(ctx context.Context) error
 }
 func (m *mockDB) CreateChirp(ctx context.Context, params database.CreateChirpParams) (database.Chirp, error) {
@@ -52,6 +53,9 @@ createChirpFn: func(ctx context.Context, params database.CreateChirpParams) (dat
         createUserFn: func(ctx context.Context, arg database.CreateUserParams) (database.User, error) {
             return database.User{}, nil
         },
+		getUserByEmailFn: func(ctx context.Context, email string) (database.User, error) {
+			return mockUser(), nil
+		},
         resetUsersFn: func(ctx context.Context) error {
             return nil
         },
@@ -67,6 +71,17 @@ func mockChirp() database.Chirp {
         Body:      "this is a valid chirp",
         UserID:    uuid.New(),
     }
+}
+
+// Create Mock User
+func mockUser() database.User {
+	return database.User{
+		ID: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Email: "example@email.com",
+		HashedPassword: "example",
+	}
 }
 
 // create mock chirp request body
