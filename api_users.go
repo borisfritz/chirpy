@@ -63,7 +63,7 @@ func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := cfg.db.GetUserByEmail(r.Context(), params.Email)
 	if err != nil {
-		respondWithError(w, http.StatusForbidden, "user not found")
+		respondWithError(w, http.StatusUnauthorized, "user not found")
 		return
 	}
 	ok, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
@@ -72,7 +72,7 @@ func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok {
-		respondWithError(w, http.StatusForbidden, "incorrect password")
+		respondWithError(w, http.StatusUnauthorized, "incorrect password")
 		return
 	}
 	respondWithJSON(w, http.StatusOK, userResponse{
