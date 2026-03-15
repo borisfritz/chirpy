@@ -33,6 +33,9 @@ func (m *mockDB) GetChirpByID(ctx context.Context, id uuid.UUID) (database.Chirp
 func (m *mockDB) CreateUser(ctx context.Context, arg database.CreateUserParams) (database.User, error) {
     return m.createUserFn(ctx, arg)
 }
+func (m *mockDB) GetUserByEmail(ctx context.Context, email string) (database.User, error) {
+	return m.getUserByEmailFn(ctx, email)
+}
 func (m *mockDB) ResetUsers(ctx context.Context)  error {
 	return m.resetUsersFn(ctx)
 }
