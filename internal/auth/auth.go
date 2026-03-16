@@ -5,6 +5,8 @@ import (
 	"time"
 	"strings"
 	"net/http"
+	"crypto/rand"
+	"encoding/hex"
 
 	"github.com/alexedwards/argon2id"
 	"github.com/golang-jwt/jwt/v5"
@@ -62,4 +64,11 @@ func GetBearerToken(headers http.Header) (string, error) {
 		return "", errors.New("invalid authorization header format")
 	}
 	return strings.TrimSpace(token), nil
+}
+
+func MakeRefreshToken() string {
+	key := make([]byte, 32)
+	rand.Read(key)
+	token := hex.EncodeToString(key)
+	return token
 }

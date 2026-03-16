@@ -11,11 +11,12 @@ import (
 )
 
 type userResponse struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
-	Token	  string 	`json:"token"`
+	ID        		uuid.UUID 	`json:"id"`
+	CreatedAt 		time.Time 	`json:"created_at"`
+	UpdatedAt 		time.Time 	`json:"updated_at"`
+	Email     		string 		`json:"email"`
+	Token	  		string 		`json:"token"`
+	RefreshToken 	string 		`json:"refresh_token"`
 }
 
 func (cfg *apiConfig) handlerPostUsers(w http.ResponseWriter, r *http.Request) {
@@ -28,19 +29,19 @@ func (cfg *apiConfig) handlerPostUsers(w http.ResponseWriter, r *http.Request) {
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "invalid request body")
+		respondWithError(w, http.StatusBadRequest, "invalid request body", err)
 		return
 	}
 	hashedPassword, err := auth.HashPassword(params.Password)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "unable to hash password")
+		respondWithError(w, http.StatusInternalServerError, "unable to hash password", err)
 	}
 	user, err := cfg.db.CreateUser(r.Context(), database.CreateUserParams{
 		Email: params.Email,
 		HashedPassword: hashedPassword,
 	})
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Unable to create user")
+		respondWithError(w, http.StatusInternalServerError, "Unable to create user", err)
 		return
 	}
 	respondWithJSON(w, http.StatusCreated, userResponse{
@@ -51,54 +52,3 @@ func (cfg *apiConfig) handlerPostUsers(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
-	type parameters struct {
-		Password			string	`json:"password"`
-		Email 				string 	`json:"email"`
-		ExpiresInSeconds 	int 	`json:"expires_in_seconds"`
-	}
-
-	//Read into params
-	decoder := json.NewDecoder(r.Body)
-	params := parameters{}
-	err := decoder.Decode(&params)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	//auth user
-	user, err := cfg.db.GetUserByEmail(r.Context(), params.Email)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "user not found")
-		return
-	}
-	ok, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "unable to check password")
-		return
-	}
-	if !ok {
-		respondWithError(w, http.StatusUnauthorized, "incorrect password")
-		return
-	}
-	if params.ExpiresInSeconds <= 0 || params.ExpiresInSeconds > 3600 {
-		params.ExpiresInSeconds = 3600
-	}
-
-	//create token
-	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Second * time.Duration(params.ExpiresInSeconds))
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "failed to create token")
-		return
-	}
-
-	//respond
-	respondWithJSON(w, http.StatusOK, userResponse{
-		ID: user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email: user.Email,
-		Token: token,
-	})
-}

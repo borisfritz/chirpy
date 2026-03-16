@@ -29,7 +29,7 @@ func (cfg *apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 	// validate headers
 	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "invalid token")
+		respondWithError(w, http.StatusUnauthorized, "invalid access token", err)
 		return
 	}
 
@@ -38,18 +38,18 @@ func (cfg *apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 	params := parameters{}
 	err = decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "invalid request body")
+		respondWithError(w, http.StatusBadRequest, "invalid request body", err)
 		return
 	}
 
 	//validate chirp (jwt and lenght)
 	user, err := auth.ValidateJWT(token, cfg.jwtSecret)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "unable to validate token")
+		respondWithError(w, http.StatusUnauthorized, "unable to validate access token", err)
 		return
 	}
 	if len(params.Body) > 140 {
-		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
+		respondWithError(w, http.StatusBadRequest, "Chirp is too long", err)
 		return
 	}
 
@@ -62,7 +62,7 @@ func (cfg *apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 		UserID: user,
 	})
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "unable to create chirp")
+		respondWithError(w, http.StatusInternalServerError, "unable to create chirp", err)
 		return
 	}
 	respondWithJSON(w, http.StatusCreated, chirpResponse{
@@ -77,7 +77,7 @@ func (cfg *apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 	chirps, err := cfg.db.GetAllChirps(r.Context())
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "unable to get chirps")
+		respondWithError(w, http.StatusInternalServerError, "unable to get chirps", err)
 		return
 	}
 	response := []chirpResponse{}
@@ -97,12 +97,12 @@ func (cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
 	chirpID := r.PathValue("chirpID")
 	id, err := uuid.Parse(chirpID)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "invalid chirp id")
+		respondWithError(w, http.StatusBadRequest, "invalid chirp id", err)
 		return
 	}
 	chirp, err := cfg.db.GetChirpByID(r.Context(), id)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "chirp not found")
+		respondWithError(w, http.StatusNotFound, "chirp not found", err)
 		return
 	}
 	respondWithJSON(w, http.StatusOK, chirpResponse{

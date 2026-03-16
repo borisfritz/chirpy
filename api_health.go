@@ -29,13 +29,13 @@ func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
 
 func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
 	if cfg.platform != "dev" {
-		respondWithError(w,http.StatusForbidden, "Permission Denied")
+		respondWithError(w,http.StatusForbidden, "Permission Denied", nil)
 		return
 	}
 	cfg.fileserverHits.Store(0)
 	err := cfg.db.ResetUsers(r.Context())
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Unable to reset users.")
+		respondWithError(w, http.StatusInternalServerError, "Unable to reset users.", err)
 		return
 	}
 	w.WriteHeader(200)
