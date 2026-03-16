@@ -15,6 +15,7 @@ type userResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	Token	  string 	`json:"token"`
 }
 
 func (cfg *apiConfig) handlerPostUsers(w http.ResponseWriter, r *http.Request) {
@@ -22,6 +23,7 @@ func (cfg *apiConfig) handlerPostUsers(w http.ResponseWriter, r *http.Request) {
 		Email 	 string	`json:"email"`
 		Password string `json:"password"`
 	}
+
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
 	err := decoder.Decode(&params)
@@ -51,9 +53,12 @@ func (cfg *apiConfig) handlerPostUsers(w http.ResponseWriter, r *http.Request) {
 
 func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Password	string	`json:"password"`
-		Email 		string 	`json:"email"`
+		Password			string	`json:"password"`
+		Email 				string 	`json:"email"`
+		ExpiresInSeconds 	int 	`json:"expires_in_seconds"`
 	}
+
+	//Read into params
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
 	err := decoder.Decode(&params)
@@ -61,6 +66,8 @@ func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+
+	//auth user
 	user, err := cfg.db.GetUserByEmail(r.Context(), params.Email)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "user not found")
@@ -75,10 +82,23 @@ func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusUnauthorized, "incorrect password")
 		return
 	}
+	if params.ExpiresInSeconds <= 0 || params.ExpiresInSeconds > 3600 {
+		params.ExpiresInSeconds = 3600
+	}
+
+	//create token
+	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Second * time.Duration(params.ExpiresInSeconds))
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "failed to create token")
+		return
+	}
+
+	//respond
 	respondWithJSON(w, http.StatusOK, userResponse{
 		ID: user.ID,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email: user.Email,
+		Token: token,
 	})
 }

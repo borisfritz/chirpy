@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/borisfritz/chirpy/internal/auth"
 	"github.com/borisfritz/chirpy/internal/database"
 	"github.com/google/uuid"
 )
@@ -24,25 +25,41 @@ func (cfg *apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 		Body string `json:"body"`
 		UserID uuid.UUID `json:"user_id"`
 	}
+	
+	// validate headers
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid token")
+		return
+	}
 
+	//read body into params
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
+	//validate chirp (jwt and lenght)
+	user, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to validate token")
+		return
+	}
 	if len(params.Body) > 140 {
 		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
 		return
 	}
 
+	//filter chirp
 	filtered := chirpFilter(params.Body)
 
+	// create responce and respond
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body: filtered,
-		UserID: params.UserID,
+		UserID: user,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "unable to create chirp")

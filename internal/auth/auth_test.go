@@ -3,101 +3,184 @@ package auth
 import (
 	"testing"
 	"time"
+	"net/http"
 
 	"github.com/google/uuid"
 )
 
-func TestHashPassword(t *testing.T) {
-	hash, err := HashPassword("password123")
-	if err != nil {
-		t.Errorf("expected no error, got %v:", err)
-	}
-	if hash == "" {
-		t.Error("Expected hash to not be empty")
-	}
-	if hash == "password123" {
-		t.Error("hash should not equal original password")
-	}
-}
-
 func TestCheckPasswordHash(t *testing.T) {
-	hash, err := HashPassword("password123")
-	if err != nil {
-		t.Fatalf("failed to hash password: %v:", err)
-	}
+	password1 := "correctPassword123!"
+	password2 := "anotherPassword456!"
+	hash1, _ := HashPassword(password1)
+	hash2, _ := HashPassword(password2)
 
-	match, err := CheckPasswordHash("password123", hash)
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
+	tests := []struct {
+		name          string
+		password      string
+		hash          string
+		wantErr       bool
+		matchPassword bool
+	}{
+		{
+			name:          "Correct password",
+			password:      password1,
+			hash:          hash1,
+			wantErr:       false,
+			matchPassword: true,
+		},
+		{
+			name:          "Incorrect password",
+			password:      "wrongPassword",
+			hash:          hash1,
+			wantErr:       false,
+			matchPassword: false,
+		},
+		{
+			name:          "Password doesn't match different hash",
+			password:      password1,
+			hash:          hash2,
+			wantErr:       false,
+			matchPassword: false,
+		},
+		{
+			name:          "Empty password",
+			password:      "",
+			hash:          hash1,
+			wantErr:       false,
+			matchPassword: false,
+		},
+		{
+			name:          "Invalid hash",
+			password:      password1,
+			hash:          "invalidhash",
+			wantErr:       true,
+			matchPassword: false,
+		},
 	}
-	if !match {
-		t.Error("expected password to match hash")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			match, err := CheckPasswordHash(tt.password, tt.hash)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CheckPasswordHash() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && match != tt.matchPassword {
+				t.Errorf("CheckPasswordHash() expects %v, got %v", tt.matchPassword, match)
+			}
+		})
 	}
 }
 
-func TestCheckPasswordHashWrongPassword(t *testing.T) {
-	hash, err := HashPassword("password123")
-	if err != nil {
-		t.Fatalf("failed to hash password: %v:", err)
-	}
-	match, err :=  CheckPasswordHash("wrongpassword", hash)
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
-	if match {
-		t.Error("expected password to not match hash")
-	}
-}
-
-func TestMakeJWTValid(t *testing.T) {
-	secret := "testsecret"
-	userID := uuid.New()
-	token, err := MakeJWT(userID, secret, time.Hour)
-	if err != nil {
-		t.Errorf("expecting no error, got %v", err)
-	}
-	if token == "" {
-		t.Error("expecting token to not be empty")
-	}
-}
 
 func TestValidateJWT(t *testing.T) {
-	secret := "testsecret"
 	userID := uuid.New()
-	token, err := MakeJWT(userID, secret, time.Hour)
-	if err != nil {
-		t.Fatalf("unable to create token: %v", err)
+	validToken, _ := MakeJWT(userID, "secret", time.Hour)
+	expiredToken, _ := MakeJWT(userID, "secret", -time.Hour)
+
+	tests := []struct {
+		name        string
+		tokenString string
+		tokenSecret string
+		wantUserID  uuid.UUID
+		wantErr     bool
+	}{
+		{
+			name:        "Valid token",
+			tokenString: validToken,
+			tokenSecret: "secret",
+			wantUserID:  userID,
+			wantErr:     false,
+		},
+		{
+			name:        "Invalid token",
+			tokenString: "invalid.token.string",
+			tokenSecret: "secret",
+			wantUserID:  uuid.Nil,
+			wantErr:     true,
+		},
+		{
+			name:        "Expired token",
+			tokenString: expiredToken,
+			tokenSecret: "secret",
+			wantUserID:  uuid.Nil,
+			wantErr:     true,
+		},
+		{
+			name:        "Wrong secret",
+			tokenString: validToken,
+			tokenSecret: "wrong_secret",
+			wantUserID:  uuid.Nil,
+			wantErr:     true,
+		},
 	}
-	gotID, err := ValidateJWT(token, secret)
-	if err != nil {
-		t.Errorf("expecting no error, got %v", err)
-	}
-	if userID != gotID {
-		t.Errorf("expecting %v, got %v", userID, gotID)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotUserID, err := ValidateJWT(tt.tokenString, tt.tokenSecret)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateJWT() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotUserID != tt.wantUserID {
+				t.Errorf("ValidateJWT() gotUserID = %v, want %v", gotUserID, tt.wantUserID)
+			}
+		})
 	}
 }
 
-func TestValidateJWTWrongSecret(t *testing.T) {
-	userID := uuid.New()
-	token, err := MakeJWT(userID, "correctsecret", time.Hour)
-	if err != nil {
-		t.Fatalf("Failed to create token: %v", err)
-	}
-	_, err = ValidateJWT(token, "wrongsecret")
-	if err == nil {
-		t.Error("expecting error with wrong secret, got nil")
-	}
-}
 
-func TestValidateJWTExpired(t *testing.T) {
-	userID := uuid.New()
-	secret := "testsecret"
-	token, err := MakeJWT(userID, secret, -time.Hour)
-	if err != nil {
-		t.Fatalf("unable to create token: %v", err)
+func TestGetBearerToken(t *testing.T) {
+	validHeader := http.Header{}
+    validHeader.Set("Authorization", "Bearer mytoken123")
+
+	whitespaceHeader := http.Header{}
+	whitespaceHeader.Set("Authorization", "Bearer    mytoken123   ")
+
+	emptyHeader := http.Header{}
+
+	invalidHeader := http.Header{}
+	invalidHeader.Set("Authorization", "mytoken123")
+
+	tests := []struct{
+		name string
+		header http.Header
+		wantToken string
+		wantErr bool
+	}{
+		{
+			name: "Valid bearer",
+			header: validHeader,
+			wantToken: "mytoken123",
+			wantErr: false,
+		},
+		{
+			name: "Extra Whitespace",
+			header: whitespaceHeader,
+			wantToken: "mytoken123",
+			wantErr: false,
+		},
+		{
+			name: "Empty Header",
+			header: emptyHeader,
+			wantToken: "",
+			wantErr: true,
+		},
+		{
+			name: "invalidHeader",
+			header: invalidHeader,
+			wantToken: "",
+			wantErr: true,
+		},
 	}
-	_, err = ValidateJWT(token, secret)
-	if err == nil {
-		t.Error("expecting err for expired token, got nil")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotToken, err := GetBearerToken(tt.header)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetBearerToken() err = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotToken != tt.wantToken {
+				t.Errorf("GetBearerToken() gotToken %v, want %v", gotToken, tt.wantToken)
+			}
+		})
 	}
 }

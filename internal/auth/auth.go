@@ -3,6 +3,8 @@ package auth
 import (
 	"errors"
 	"time"
+	"strings"
+	"net/http"
 
 	"github.com/alexedwards/argon2id"
 	"github.com/golang-jwt/jwt/v5"
@@ -29,7 +31,7 @@ func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (str
 	claims := jwt.RegisteredClaims{
 		Issuer: "chirpy-access",
 		IssuedAt: jwt.NewNumericDate(time.Now().UTC()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().UTC().UTC().Add(expiresIn)),
+		ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(expiresIn)),
 		Subject: userID.String(),
 	}	
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -49,4 +51,15 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 		return uuid.UUID{}, errors.New("invalid user ID")
 	}
 	return userID, nil
+}
+func GetBearerToken(headers http.Header) (string, error) {
+	authHeader := headers.Get("Authorization")
+	if authHeader == "" {
+		return "", errors.New("No Authorization Header")
+	}
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == authHeader {
+		return "", errors.New("invalid authorization header format")
+	}
+	return strings.TrimSpace(token), nil
 }

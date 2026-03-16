@@ -14,8 +14,9 @@ import (
 
 type apiConfig struct {
 	fileserverHits 	atomic.Int32
-	db 				DB
+	db 				*database.Queries
 	platform		string
+	jwtSecret		string
 }
 
 func main() {
@@ -36,6 +37,7 @@ func main() {
 	cfg := &apiConfig{
 		db: dbQueries, 
 		platform: os.Getenv("PLATFORM"),
+		jwtSecret: os.Getenv("JWT_SECRET"),
 	}
 	mux := http.NewServeMux()
 
@@ -43,8 +45,7 @@ func main() {
 	mux.Handle("/app/", cfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))
 
 	//api handlers
-	//GET Requests
-	mux.HandleFunc("GET /admin/metrics", cfg.handlerMetrics)
+	//GET Requests mux.HandleFunc("GET /admin/metrics", cfg.handlerMetrics)
 	mux.HandleFunc("GET /api/chirps", cfg.handlerGetChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.handlerGetChirp)
 	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, r *http.Request) {
