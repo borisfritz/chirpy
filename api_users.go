@@ -35,6 +35,7 @@ func (cfg *apiConfig) handlerPostUsers(w http.ResponseWriter, r *http.Request) {
 	hashedPassword, err := auth.HashPassword(params.Password)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "unable to hash password", err)
+		return
 	}
 	user, err := cfg.db.CreateUser(r.Context(), database.CreateUserParams{
 		Email: params.Email,
@@ -52,3 +53,44 @@ func (cfg *apiConfig) handlerPostUsers(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (cfg *apiConfig) handlerUpdateUser (w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Email 		string 	`json:"email"`
+		Password 	string 	`json:"password"`
+	}
+
+	//user auth
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid access token", err)
+		return
+	}
+	user, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "unable to validate access token", err)
+		return
+	}
+
+	//parse request
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err = decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
+	// hash password
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to hash password", err)
+		return
+	}
+
+	// update data, return new
+	newUserData, err := cfg.db.UpdateUser(r.Context(), database.UpdateUserParams{
+		Email: params.Email,
+		HashedPassword: hashedPassword,
+		ID: user,
+	})
+}
