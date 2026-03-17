@@ -93,4 +93,14 @@ func (cfg *apiConfig) handlerUpdateUser (w http.ResponseWriter, r *http.Request)
 		HashedPassword: hashedPassword,
 		ID: user,
 	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to update user information", err)
+		return
+	}
+	respondWithJSON(w, http.StatusOK, userResponse{
+		ID: newUserData.ID,
+		CreatedAt: newUserData.CreatedAt,
+		UpdatedAt: newUserData.UpdatedAt,
+		Email: newUserData.Email,
+	})
 }

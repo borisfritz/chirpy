@@ -62,7 +62,10 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", cfg.handlerPostChirp)
 
 	//PUT requests
-	mux.HandleFUnc("PUT /api/users", cfg.handlerUpdateUser)
+	mux.HandleFunc("PUT /api/users", cfg.handlerUpdateUser)
+	
+	//DELETE requests
+	mux.HandleFunc("DELETE /api/chirps/{chirpID}", cfg.handlerDeleteChirp)
 
 	// Create and start server
 	server := &http.Server{

@@ -114,6 +114,40 @@ func (cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid access token", err)
+		return
+	}
+	user, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "unable to validate access token", err)
+		return
+	}
+	chirpID := r.PathValue("chirpID")
+	id, err := uuid.Parse(chirpID)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "invalid chirp id", err)
+		return
+	}
+	chirp, err := cfg.db.GetChirpByID(r.Context(), id)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "chirpID does not exist", err) 
+		return 
+	}
+	if chirp.UserID != user {
+		respondWithError(w, http.StatusForbidden, "unauthorized access", err)
+		return
+	}
+	err = cfg.db.DeleteChirpByID(r.Context(), id)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "chirpID does not exists", err)
+		return
+	}
+	respondWithJSON(w, http.StatusNoContent, nil)
+}
+
 func chirpFilter(body string) string {
 	banned := []string{"kerfuffle", "sharbert", "fornax"}
 	words := strings.Split(body, " ")
