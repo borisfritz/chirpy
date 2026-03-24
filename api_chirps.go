@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"sort"
 
 	"github.com/borisfritz/chirpy/internal/auth"
 	"github.com/borisfritz/chirpy/internal/database"
@@ -97,23 +98,29 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 				UserID: chirp.UserID,
 			})
 		}
-		respondWithJSON(w, http.StatusOK, response)
-		return
+	} else {
+		chirps, err := cfg.db.GetAllChirps(r.Context())
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "unable to get chirps", err)
+			return
+		}
+		for _, chirp := range chirps {
+			response = append(response, chirpResponse{
+				ID: chirp.ID,
+				CreatedAt: chirp.CreatedAt,
+				UpdatedAt: chirp.UpdatedAt,
+				Body: chirp.Body,
+				UserID: chirp.UserID,
+			})
+		}
 	}
-	chirps, err := cfg.db.GetAllChirps(r.Context())
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "unable to get chirps", err)
-		return
-	}
-	for _, chirp := range chirps {
-		response = append(response, chirpResponse{
-			ID: chirp.ID,
-			CreatedAt: chirp.CreatedAt,
-			UpdatedAt: chirp.UpdatedAt,
-			Body: chirp.Body,
-			UserID: chirp.UserID,
-		})
-	}
+	sortDir := r.URL.Query().Get("sort")
+	sort.Slice(response, func(i, j int) bool {
+		if sortDir == "desc" {
+			return response[i].CreatedAt.After(response[j].CreatedAt)
+		}
+		return response[i].CreatedAt.Before(response[j].CreatedAt)
+	})
 	respondWithJSON(w, http.StatusOK, response)
 }
 
