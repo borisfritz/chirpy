@@ -75,17 +75,41 @@ func (cfg *apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
+	response := []chirpResponse{}
+	author := r.URL.Query().Get("author_id")
+	if author != "" {
+		authID, err := uuid.Parse(author)
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "user doesnt exist", err)
+			return
+		}
+		chirps, err := cfg.db.GetChirpByAuth(r.Context(), authID)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "unable to get chirps", err)
+			return
+		}
+		for _, chirp := range chirps {
+			response = append(response, chirpResponse{
+				ID: chirp.ID,
+				CreatedAt: chirp.CreatedAt,
+				UpdatedAt: chirp.UpdatedAt,
+				Body: chirp.Body,
+				UserID: chirp.UserID,
+			})
+		}
+		respondWithJSON(w, http.StatusOK, response)
+		return
+	}
 	chirps, err := cfg.db.GetAllChirps(r.Context())
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "unable to get chirps", err)
 		return
 	}
-	response := []chirpResponse{}
 	for _, chirp := range chirps {
 		response = append(response, chirpResponse{
 			ID: chirp.ID,
 			CreatedAt: chirp.CreatedAt,
-			UpdatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
 			Body: chirp.Body,
 			UserID: chirp.UserID,
 		})
